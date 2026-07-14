@@ -27,7 +27,7 @@ GAS標準の「ライブラリ」機能を使う方法もあります。
 6. 利用するプロジェクトの `.gs` ファイルに、次の1行を**トップレベル**(`doGet` などの関数の外)に追加する
 
    ```javascript
-   const GasRouter = GasRouterLib.createGasRouter();
+   const GasRouter = GasRouterLib.createGasRouter_();
 
    function doGet(e) {
      return GasRouter.run({ ... }); // この中からも GasRouter が参照できる

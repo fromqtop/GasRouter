@@ -1,13 +1,3 @@
-/**
- * GasRouter ライブラリ
- *
- * GASの制約上、ライブラリは利用者側プロジェクトのファイルを直接読み込めない。
- * そのため、実際のファイル読み込み(readFile)は利用者側で定義し、
- * その関数ごと run() に渡してもらう構成になっている。
- *
- * 使い方の詳細は README を参照。
- */
-
 class GasRouterImpl {
   /**
    * @param {Object} config
@@ -239,21 +229,14 @@ class GasRouterImpl {
 }
 
 /**
- * ライブラリとして利用する場合(README「方法B」)、GASのライブラリ機能は
- * トップレベルの function 宣言だけを外部に公開する仕様のため、
- * このファクトリ関数を使ってインスタンスを取得すること。
+ * ライブラリとして利用する場合、このファクトリ関数を使ってインスタンスを取得すること。
  * 例: const GasRouter = Identifier.createGasRouter_();
- *
- * 末尾の _ は「google.script.run から呼び出せないようにする」というGASの慣習。
- * ライブラリとしての公開(Identifier.createGasRouter_())には影響しない。
  */
 function createGasRouter_() {
   return new GasRouterImpl();
 }
 
 /**
- * このファイルを自分のプロジェクトに直接貼り付けた場合(README「方法A」)、
- * すぐに GasRouter.run(config) と書けるようにするためのもの。
- * (google.script.run からクラスのメソッドは直接呼び出せないため、安全)
+ * このファイルを自分のプロジェクトに直接貼り付けた場合、すぐに GasRouter.run(config) と書けるようにするためのもの。
  */
 const GasRouter = createGasRouter_();

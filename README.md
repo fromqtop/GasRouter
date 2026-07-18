@@ -10,7 +10,7 @@ GAS(Google Apps Script)の標準エディタで手軽に導入できる、SPAル
 ### 方法A: GasRouter.gs をそのままペーストする
 
 一番手軽な方法です。`GasRouter.gs` の中身をコピーし、自分のGASプロジェクトに新しく `.gs` ファイルを作って貼り付けてください。
-これだけで、`GasRouter.run(...)` のようにそのまま使えるようになります。
+これだけで、`GasRouter.build(...)` のようにそのまま使えるようになります。
 
 コードを直接見たい・改造したい場合や、複数プロジェクトで使い回すつもりが無い場合はこちらがおすすめです。
 
@@ -30,11 +30,11 @@ GAS標準の「ライブラリ」機能を使う方法もあります。
    const GasRouter = GasRouterLib.createGasRouter_();
 
    function doGet(e) {
-     return GasRouter.run({ ... }); // この中からも GasRouter が参照できる
+     return GasRouter.build({ ... }); // この中からも GasRouter が参照できる
    }
    ```
 
-これで、以降は方法Aと同じ `GasRouter.run(...)` という書き方が使えます。
+これで、以降は方法Aと同じ `GasRouter.build(...)` という書き方が使えます。
 この方法であれば、`GasRouter.gs` を更新したときに、利用している全プロジェクトへ反映しやすくなります。
 
 ## 使い方
@@ -114,12 +114,12 @@ GasRouter.navigate('about', { ref: 'email' }); // クエリパラメータが { 
 
 `コード.gs`(名称は変更しても問題ありません)に、以下のスクリプトを記述してください。
 
-`GasRouter.run`のオプションである`routes`には、ページ名の配列をセットしてください。(例: `routes: ['home', 'about']`)
+`GasRouter.build`のオプションである`routes`には、ページ名の配列をセットしてください。(例: `routes: ['home', 'about']`)
 なお、最初の要素がデフォルトで表示されるページとなります。
 
 ```javascript
 function doGet(e) {
-  return GasRouter.run({
+  return GasRouter.build({
     routes: ["home", "about"],
     readFile: readTemplate_,
   });
@@ -134,7 +134,7 @@ function readTemplate_(filename, vars) {
 
 基本の導入方法は以上です。デプロイしてウェブアプリが動作することを確認してください。
 
-## GasRouter.run() のオプション
+## GasRouter.build() のオプション
 
 | キー           | 必須 | 説明                                        | 省略時        |
 | -------------- | ---- | ------------------------------------------- | ------------- |
@@ -146,13 +146,13 @@ function readTemplate_(filename, vars) {
 | `mountId`      | -    | ルーティング結果を差し込む要素のID          | `'app'`       |
 | `notFoundFile` | -    | 404ページのファイル名                       | `'pages/404'` |
 
-`routes`(空でない配列)と `readFile`(関数)が無い場合、`GasRouter.run` はエラーを投げます。
+`routes`(空でない配列)と `readFile`(関数)が無い場合、`GasRouter.build` はエラーを投げます。
 
 ### 使用例
 
 ```javascript
 function doGet(e) {
-  return GasRouter.run({
+  return GasRouter.build({
     routes: ['top', 'about', 'user/[id]'],
     readFile: readTemplate_,
     data: { appName: 'サンプルアプリ' },
@@ -304,7 +304,7 @@ function doGet(e) {
     ? PUBLIC_ROUTES.concat(ADMIN_ROUTES)
     : PUBLIC_ROUTES;
 
-  return GasRouter.run({
+  return GasRouter.build({
     routes: routes,
     readFile: readTemplate_,
   });

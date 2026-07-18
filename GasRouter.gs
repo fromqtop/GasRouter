@@ -1,26 +1,28 @@
+/**
+ * GasRouter - GAS Webアプリ用のハッシュベースSPAルーター
+ */
+
 class GasRouterImpl {
   /**
    * @param {Object} config
    * @param {string[]} config.routes           ルート名の配列(必須)
-   * @param {Function} config.readFile         (filename, vars) => 評価済みHTML文字列 を返す関数(必須)。
-   *                                            利用者側で定義し、そのまま渡すこと。
-   * @param {Object} [config.data]             各ページ・レイアウトに渡す共通データ。省略時は空オブジェクト。
-   * @param {string} [config.defaultRoute]     ルート未指定時に表示するルート名。省略時は routes[0]。
-   * @param {string} [config.layoutFile]       レイアウトファイル名。省略時は 'Layout'。
-   * @param {string} [config.mountId]          ルーティング結果を差し込む要素のID。省略時は 'app'。
-   * @param {string} [config.notFoundFile]     404ページのファイル名。省略時は 'pages/404'。
+   * @param {Function} config.readFile         (filename, vars) => 評価済みHTML文字列(必須)
+   * @param {Object} [config.data]             各ページ・レイアウトへの共通データ。既定値: {}
+   * @param {string} [config.defaultRoute]     未指定時のルート名。既定値: routes[0]
+   * @param {string} [config.layoutFile]       レイアウトファイル名。既定値: 'Layout'
+   * @param {string} [config.mountId]          マウント要素のID。既定値: 'app'
+   * @param {string} [config.notFoundFile]     404ページのファイル名。既定値: 'pages/404'
    * @return {HtmlOutput}
-   * @throws {Error} config が無い、config.routes が空配列/非配列、config.readFile が関数でない場合
    */
-  run(config) {
+  build(config) {
     if (!config) {
-      throw new Error('GasRouter.run: config is required.');
+      throw new Error('GasRouter.build: config is required.');
     }
     if (!Array.isArray(config.routes) || config.routes.length === 0) {
-      throw new Error('GasRouter.run: config.routes must be a non-empty array.');
+      throw new Error('GasRouter.build: config.routes must be a non-empty array.');
     }
     if (typeof config.readFile !== 'function') {
-      throw new Error('GasRouter.run: config.readFile must be a function.');
+      throw new Error('GasRouter.build: config.readFile must be a function.');
     }
 
     const defaultRoute = config.defaultRoute || config.routes[0];
@@ -31,13 +33,13 @@ class GasRouterImpl {
 
     const pages = {};
     config.routes.forEach(route => {
-      pages[route] = config.readFile('pages/' + route, { data: data }); // 無ければ例外(設定ミスに気づけるように)
+      pages[route] = config.readFile('pages/' + route, { data: data });
     });
 
     try {
       pages['404'] = config.readFile(notFoundFile, { data: data });
     } catch (err) {
-      pages['404'] = '404 Not Found'; // 404ページが無い場合のフォールバック
+      pages['404'] = '404 Not Found';
     }
 
     const fragments = this.buildFragments_(pages, {
@@ -58,8 +60,7 @@ class GasRouterImpl {
   }
 
   /**
-   * ページ群とルート設定から、Layout.html に差し込む3つのHTML断片を組み立てる。
-   * (grHeadScript: <head>に置く定義、grContent: マウント要素の中身、grBodyScript: ルーティング本体)
+   * pages と ルート設定から、Layout.html に差し込む4つのHTML断片を組み立てる。
    */
   buildFragments_(pages, options) {
     const opts = Object.assign({
@@ -68,50 +69,45 @@ class GasRouterImpl {
       defaultRoute: 'home',
     }, options || {});
 
-    // 各ページを、非表示状態のdivとして組み立てる。
-    // pages['404'] は run() 側で必ず何らかの値を持たせているので、常に含める。
+    // 各ページを非表示状態のdivとして組み立てる(404は常に含む)
     const pageDivs = [...new Set(opts.routes.concat('404'))]
-      .map(route => {
-        return `<div data-gr-route="${route}" class="gr-page">${pages[route]}</div>`;
-      })
+      .map(route => `<div data-gr-route="${route}" class="gr-page">${pages[route]}</div>`)
       .join('\n');
-  
+
     const grHeadStyle = `
     .gr-page { display: none; }
     .gr-page.gr-active { display: block; }
     `;
-  
+
     const grHeadScript = `
     window.GasRouter = {};
     GasRouter.hooks = {};
-  
-    // Layout.html などから呼ぶ。ルートに一致したときの処理を登録する。
+    GasRouter.current = { route: null, params: {}, query: {}, hash: '' };
+
+    // ルートに一致したときの処理を登録する。
     // 例: GasRouter.on('user/[id]', function ({ params, container, query, route, hash }) { ... });
-    // 戻り値に関数を返すと、次にページを離れるときにその関数が呼ばれる。
+    // 戻り値に関数を返すと、次にページを離れるときにその関数が呼ばれる(後片付け用)。
     GasRouter.on = function (pattern, callback) {
       GasRouter.hooks[pattern] = callback;
     };
     `;
-  
+
     const grBodyScript = `
   (function () {
     const routePatterns = ${JSON.stringify(opts.routes)};
     const mountEl = document.getElementById('${opts.mountId}');
     if (!mountEl) {
-      throw new Error('GasRouter: mount element (#${opts.mountId}) not found. Layout.html内に <div id="${opts.mountId}">...</div> があるか確認してください。');
+      throw new Error('GasRouter: mount element (#${opts.mountId}) not found.');
     }
-  
-    // [id]のような動的セグメントを含まないパターンと、含むパターンに分けておく。
-    // 固定ページ(user/settings)を、動的ページ(user/[id])より優先してマッチさせるため、
-    // まずリテラルの配列から、無ければ動的の配列から探す。
+
+    // 固定ページ(user/settings)を動的ページ(user/[id])より優先させるため、
+    // リテラルパターンと動的パターンに分けて、リテラルから先に照合する。
     const literalPatterns = routePatterns.filter((p) => !p.includes('['));
     const dynamicPatterns = routePatterns.filter((p) => p.includes('['));
-  
-    // 1つのパターンに対して、URLのパスのセグメント配列が一致するか調べる。
-    // 一致すればパラメータのオブジェクトを、しなければnullを返す。
+
     function tryMatch(patternSegs, pathSegs) {
       if (patternSegs.length !== pathSegs.length) return null;
-  
+
       const params = {};
       for (let i = 0; i < patternSegs.length; i++) {
         const s = patternSegs[i];
@@ -124,13 +120,12 @@ class GasRouterImpl {
       }
       return params;
     }
-  
-    // パス文字列を、まずリテラルパターン(完全一致)、次に動的パターンの順で照合する。
+
     function matchRoute(path) {
       if (literalPatterns.includes(path)) {
         return { pattern: path, params: {} };
       }
-  
+
       const pathSegs = path.split('/');
       for (const pattern of dynamicPatterns) {
         const params = tryMatch(pattern.split('/'), pathSegs);
@@ -138,43 +133,39 @@ class GasRouterImpl {
       }
       return null;
     }
-  
+
     function findPageEl(route) {
       return mountEl.querySelector('[data-gr-route="' + route + '"]');
     }
-  
-    // 現在の状態。フック以外の場所からも GasRouter.current で参照できる。
-    GasRouter.current = { route: null, params: {}, query: {}, hash: '' };
-  
-    // 直前のフックが返したクリーンアップ関数(後片付けが必要な処理があれば)
+
+    // 直前のフックが返したクリーンアップ関数
     let cleanup = null;
-  
+
     function renderPage(raw, query) {
       if (typeof cleanup === 'function') {
         cleanup();
         cleanup = null;
       }
-  
+
       const trimmed = (raw || '').split('/').filter(Boolean).join('/');
       const path = trimmed || '${opts.defaultRoute}';
       const matched = matchRoute(path);
       const targetRoute = matched ? matched.pattern : '404';
-  
+
       mountEl.querySelectorAll('.gr-page').forEach((el) => el.classList.remove('gr-active'));
       const targetEl = findPageEl(targetRoute);
       if (!targetEl) return;
       targetEl.classList.add('gr-active');
-  
-      // 再代入ではなくプロパティ更新にすることで、
-      // 利用者が GasRouter.current を何らかのリアクティブなオブジェクトでラップしていても
-      // その参照が途切れない。
+
+      // 再代入せずプロパティ更新にすることで、GasRouter.currentを
+      // リアクティブなオブジェクトでラップしていても参照が途切れない
       Object.assign(GasRouter.current, {
         route: matched ? matched.pattern : null,
         params: matched ? matched.params : {},
         query: query || {},
         hash: raw || '',
       });
-  
+
       const hook = matched && GasRouter.hooks[matched.pattern];
       if (hook) {
         const result = hook({
@@ -189,30 +180,43 @@ class GasRouterImpl {
         }
       }
     }
-  
-    // JSコードから直接呼べる、シンプルな遷移関数
-    // 例: GasRouter.navigate('about')        → URLは #/about になる(クエリパラメータは維持される)
-    // 例: GasRouter.navigate('user/123')     → URLは #/user/123 になる('user/[id]'にマッチし、登録済みフックにparams.id === '123'が渡る)
-    // 例: GasRouter.navigate('about', { ref: 'email' }) → クエリパラメータを { ref: 'email' } に更新する
-    function navigate(path, query) {
+
+    // ページを切り替えるだけの関数。クエリパラメータは今の状態がそのまま引き継がれる
+    // (クエリだけ変えたい場合は GasRouter.updateQuery を使うこと)。
+    // 例: GasRouter.navigate('about')
+    // 例: GasRouter.navigate('user/123')  → 'user/[id]'にマッチ、params.id === '123'
+    function navigate(path) {
       path = path || '';
-      query = query !== undefined ? query : GasRouter.current.query;
-      google.script.history.push(null, query, '/' + path);
+      const query = GasRouter.current.query;
+      google.script.history.push(null, query, path);
       renderPage(path, query);
     }
     GasRouter.navigate = navigate;
-  
+
+    // 現在のパスは維持したまま、クエリパラメータだけ部分的に更新する。
+    // ページ遷移ではないため、GasRouter.on のフックは発火しない。
+    // 例: GasRouter.updateQuery({ page: '3' })  → 他のクエリ(sortなど)は保持したまま page だけ変わる
+    // 値に null を渡すと、そのキーを削除する。
+    GasRouter.updateQuery = function (partialQuery) {
+      const nextQuery = Object.assign({}, GasRouter.current.query, partialQuery || {});
+      Object.keys(nextQuery).forEach((key) => {
+        if (nextQuery[key] === null) delete nextQuery[key];
+      });
+      google.script.history.push(null, nextQuery, GasRouter.current.hash);
+      GasRouter.current.query = nextQuery;
+    };
+
     mountEl.addEventListener('click', (e) => {
       const link = e.target.closest('a[data-link]');
       if (!link) return;
       e.preventDefault();
       navigate(link.getAttribute('href'));
     });
-  
+
     google.script.history.setChangeHandler((e) => {
       renderPage(e.location.hash, e.location.parameter || {});
     });
-  
+
     google.script.url.getLocation((location) => {
       renderPage(location.hash, location.parameter || {});
     });
@@ -229,14 +233,17 @@ class GasRouterImpl {
 }
 
 /**
- * ライブラリとして利用する場合、このファクトリ関数を使ってインスタンスを取得すること。
+ * GASライブラリはトップレベルのfunction宣言しか公開できないため、
+ * ライブラリとして使う場合(README「方法B」)はこのファクトリ経由でインスタンスを取得する。
  * 例: const GasRouter = Identifier.createGasRouter_();
+ * (末尾の _ は google.script.run から呼べないようにするGASの慣習)
  */
 function createGasRouter_() {
   return new GasRouterImpl();
 }
 
 /**
- * このファイルを自分のプロジェクトに直接貼り付けた場合、すぐに GasRouter.run(config) と書けるようにするためのもの。
+ * このファイルを直接プロジェクトに貼り付けた場合(README「方法A」)、
+ * そのまま GasRouter.build(config) と書けるようにするための実体。
  */
 const GasRouter = createGasRouter_();

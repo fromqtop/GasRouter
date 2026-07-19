@@ -156,6 +156,7 @@ class GasRouterImpl {
       const targetEl = findPageEl(targetRoute);
       if (!targetEl) return;
       targetEl.classList.add('gr-active');
+      window.scrollTo(0, 0);
 
       // 再代入せずプロパティ更新にすることで、GasRouter.currentを
       // リアクティブなオブジェクトでラップしていても参照が途切れない
@@ -206,7 +207,7 @@ class GasRouterImpl {
       GasRouter.current.query = nextQuery;
     };
 
-    mountEl.addEventListener('click', (e) => {
+    document.addEventListener('click', (e) => {
       const link = e.target.closest('a[data-link]');
       if (!link) return;
       e.preventDefault();

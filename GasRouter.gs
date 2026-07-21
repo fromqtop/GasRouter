@@ -76,7 +76,7 @@ class GasRouterImpl {
 
     const grHeadStyle = `
     .gr-page { display: none; }
-    .gr-page.gr-active { display: block; }
+    .gr-page.gr-active { display: contents; }
     `;
 
     const grHeadScript = `

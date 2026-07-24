@@ -214,13 +214,21 @@ class GasRouterImpl {
       navigate(link.getAttribute('href'));
     });
 
-    google.script.history.setChangeHandler((e) => {
-      renderPage(e.location.hash, e.location.parameter || {});
-    });
-
-    google.script.url.getLocation((location) => {
-      renderPage(location.hash, location.parameter || {});
-    });
+    function initRouter() {
+      google.script.history.setChangeHandler((e) => {
+        renderPage(e.location.hash, e.location.parameter || {});
+      });
+    
+      google.script.url.getLocation((location) => {
+        renderPage(location.hash, location.parameter || {});
+      });
+    }
+    
+    if (document.readyState === 'complete') {
+      initRouter();
+    } else {
+      window.addEventListener('load', initRouter);
+    }
   })();
     `;
 

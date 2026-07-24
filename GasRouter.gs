@@ -224,10 +224,10 @@ class GasRouterImpl {
       });
     }
     
-    if (document.readyState === 'complete') {
+    if (document.readyState === 'complete' || document.readyState === 'interactive') {
       initRouter();
     } else {
-      window.addEventListener('load', initRouter);
+      window.addEventListener('DOMContentLoaded', initRouter);
     }
   })();
     `;
